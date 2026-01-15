@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Weather Pro</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #BEEFFF, #E6F9FF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.5s;
+}
+
+body.night {
+  background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+  color: white;
+}
+
+.weather-app {
+  width: 360px;
+  background: rgba(255,255,255,0.35);
+  backdrop-filter: blur(14px);
+  padding: 2rem;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 25px 45px rgba(0,0,0,0.2);
+}
+
+body.night .weather-app {
+  background: rgba(0,0,0,0.35);
+}
+
+h1 { margin-bottom: 1rem; }
+
+input, button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  margin-bottom: 0.7rem;
+  font-size: 1rem;
+}
+
+button {
+  background: #6EC6FF;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.weather-info { display: none; }
+
+.icon {
+  font-size: 4rem;
+  animation: float 2.5s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.temp { font-size: 3rem; font-weight: 600; }
+
+.forecast {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  font-size: 0.8rem;
+}
+
+.forecast div {
+  background: rgba(255,255,255,0.35);
+  border-radius: 10px;
+  padding: 5px;
+}
+
+.voice-btn {
+  background: transparent;
+  border: 2px solid #6EC6FF;
+}
+</style>
+</head>
+
+<body>
+
+<div class="weather-app">
+<h1>🌦 Smart Weather Pro</h1>
+
+<input id="cityInput" placeholder="🏙 Enter city">
+<button onclick="getWeather()">🔍 Search</button>
+<button onclick="getLocation()">📍 My Location</button>
+<button class="voice-btn" onclick="speakWeather()">🔊 Speak Weather</button>
+
+<div class="weather-info" id="weatherInfo">
+  <div class="icon" id="icon"></div>
+  <h2 id="city"></h2>
+  <div class="temp" id="temp"></div>
+  <div id="condition"></div>
+
+  <div class="forecast" id="forecast"></div>
+</div>
+</div>
+
+<script>
+const API = "153ad4183c7848e3c2f7914909f6d657";
+let currentData = null;
+
+function iconMap(desc) {
+  desc = desc.toLowerCase();
+  if (desc.includes("clear")) return "☀️";
+  if (desc.includes("cloud")) return "☁️";
+  if (desc.includes("rain")) return "🌧️";
+  if (desc.includes("snow")) return "❄️";
+  if (desc.includes("thunder")) return "⛈️";
+  return "🌈";
+}
+
+function dayNight(data) {
+  const now = data.dt;
+  if (now < data.sys.sunrise || now > data.sys.sunset) {
+    document.body.classList.add("night");
+  } else {
+    document.body.classList.remove("night");
+  }
+}
+
+function displayWeather(data) {
+  currentData = data;
+  document.getElementById("weatherInfo").style.display = "block";
+  document.getElementById("city").innerText = "📍 " + data.name;
+  document.getElementById("temp").innerText = Math.round(data.main.temp) + "°C";
+  document.getElementById("condition").innerText = data.weather[0].description;
+  document.getElementById("icon").innerText = iconMap(data.weather[0].description);
+  dayNight(data);
+}
+
+function forecast(lat, lon) {
+  fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API}`)
+  .then(res => res.json())
+  .then(data => {
+    const f = document.getElementById("forecast");
+    f.innerHTML = "";
+    for (let i = 0; i < 5; i++) {
+      const d = data.list[i * 8];
+      const day = new Date(d.dt * 1000).toLocaleDateString("en", { weekday: "short" });
+      f.innerHTML += `
+        <div>
+          ${day}<br>
+          ${iconMap(d.weather[0].description)}<br>
+          ${Math.round(d.main.temp)}°
+        </div>`;
+    }
+  });
+}
+
+function getWeather() {
+  const city = cityInput.value;
+  fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${API}`)
+  .then(res => res.json())
+  .then(data => {
+    displayWeather(data);
+    forecast(data.coord.lat, data.coord.lon);
+  });
+}
+
+function getLocation() {
+  navigator.geolocation.getCurrentPosition(pos => {
+    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&units=metric&appid=${API}`)
+    .then(res => res.json())
+    .then(data => {
+      displayWeather(data);
+      forecast(pos.coords.latitude, pos.coords.longitude);
+    });
+  });
+}
+
+function speakWeather() {
+  if (!currentData) return;
+  const msg = `The weather in ${currentData.name} is ${currentData.weather[0].description} with temperature ${Math.round(currentData.main.temp)} degrees Celsius.`;
+  speechSynthesis.speak(new SpeechSynthesisUtterance(msg));
+}
+</script>
+
+</body>
+</html>
